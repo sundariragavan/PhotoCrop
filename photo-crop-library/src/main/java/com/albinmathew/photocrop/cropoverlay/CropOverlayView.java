@@ -27,6 +27,7 @@ import android.graphics.Region;
 import android.os.Build;
 import android.util.AttributeSet;
 import android.util.TypedValue;
+import android.view.MotionEvent;
 import android.view.View;
 
 import com.albinmathew.photocrop.R;
@@ -37,8 +38,8 @@ import com.albinmathew.photocrop.photoview.PhotoViewAttacher;
 
 /**
  * @author albin
- *
- *  Modified/stripped down Code from cropper library : https://github.com/edmodo/cropper
+ * <p>
+ * Modified/stripped down Code from cropper library : https://github.com/edmodo/cropper
  */
 public class CropOverlayView extends View implements PhotoViewAttacher.IGetImageBounds {
 
@@ -77,6 +78,10 @@ public class CropOverlayView extends View implements PhotoViewAttacher.IGetImage
     private Path clipPath;
     private RectF rectF;
     private float mCornerRadius;
+    private float circleCenterX = -1;
+    private float circleCenterY = -1;
+    private float circleRadius = -1;
+
 
     public CropOverlayView(Context context) {
         super(context);
@@ -106,30 +111,31 @@ public class CropOverlayView extends View implements PhotoViewAttacher.IGetImage
     @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
-        if(mDrawCircle) {
-            float cx = (Edge.LEFT.getCoordinate() + Edge.RIGHT.getCoordinate()) / 2;
-            float cy = (Edge.TOP.getCoordinate() + Edge.BOTTOM.getCoordinate()) / 2;
-            float radius2 = (Edge.RIGHT.getCoordinate() - Edge.LEFT.getCoordinate()) / 2;
-            clipPath.addCircle(cx, cy, radius2, Path.Direction.CW);
+        if (mDrawCircle) {
+            circleCenterX = (Edge.LEFT.getCoordinate() + Edge.RIGHT.getCoordinate()) / 2;
+            circleCenterY = (Edge.TOP.getCoordinate() + Edge.BOTTOM.getCoordinate()) / 2;
+            circleRadius = (Edge.RIGHT.getCoordinate() - Edge.LEFT.getCoordinate()) / 2;
+
+            clipPath.addCircle(circleCenterX, circleCenterY, circleRadius, Path.Direction.CW);
             canvas.clipPath(clipPath, Region.Op.DIFFERENCE);
             canvas.drawColor(mBackgroundColor);
-            if(Build.VERSION.SDK_INT>=23){
-            }else{
+            if (Build.VERSION.SDK_INT >= 23) {
+            } else {
                 canvas.restore();
             }
-            canvas.drawCircle(cx, cy, radius2, mBorderPaint);
-        }else {
+            canvas.drawCircle(circleCenterX, circleCenterY, circleRadius, mBorderPaint);
+        } else {
             final float radius = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, mCornerRadius, mContext.getResources().getDisplayMetrics());
             clipPath.addRoundRect(rectF, radius, radius, Path.Direction.CW);
             canvas.clipPath(clipPath, Region.Op.DIFFERENCE);
             canvas.drawColor(mBackgroundColor);
-            if(Build.VERSION.SDK_INT>=23){
-            }else{
+            if (Build.VERSION.SDK_INT >= 23) {
+            } else {
                 canvas.restore();
             }
             canvas.drawRoundRect(rectF, radius, radius, mBorderPaint);
         }
-        if(mGuidelines) {
+        if (mGuidelines) {
             drawRuleOfThirdsGuidelines(canvas);
         }
     }
@@ -190,4 +196,22 @@ public class CropOverlayView extends View implements PhotoViewAttacher.IGetImage
         canvas.drawLine(left, y2, right, y2, mGuidelinePaint);
     }
 
+    /**
+     * I override this method so that i can listen to the touch event. Every time i receive the
+     * touch event i check whether the touch point lies inside the circle or not if yes i simply
+     * let the touch pass, mean i ignore to handle it otherwise i simply return true to let the parent
+     * i going to handle the touch event.
+     */
+    @Override
+    public boolean onTouchEvent(MotionEvent event) {
+        return !pointLiesInsideCircle(event.getX(), event.getY());
+    }
+
+    private boolean pointLiesInsideCircle(float touchX, float touchY) {
+        if (Math.pow(touchX - circleCenterX, 2) + Math.pow(touchY - circleCenterY, 2) <= Math.pow(circleRadius, 2))
+            //user touch coordinate is inside the circle
+            return true;
+        else
+            return false;
+    }
 }
